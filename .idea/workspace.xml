@@ -94,6 +94,13 @@
       <recent name="$PROJECT_DIR$/user" />
     </key>
   </component>
+  <component name="RunManager">
+    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
+      </method>
+    </configuration>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -104,6 +111,8 @@
       <updated>1726664010076</updated>
       <workItem from="1726664011190" duration="7638000" />
       <workItem from="1726726068026" duration="19000" />
+      <workItem from="1726738053445" duration="6628000" />
+      <workItem from="1726899463616" duration="12000" />
     </task>
     <servers />
   </component>
