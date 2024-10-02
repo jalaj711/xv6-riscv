@@ -133,28 +133,28 @@ static uint64 (*syscalls[])(void) = {
 // An array mapping syscall numbers from syscall.h
 // to the name of that system call.
 static char* syscalls_names[] = {
-[SYS_fork]    "fork    ",
-[SYS_exit]    "exit    ",
-[SYS_wait]    "wait    ",
-[SYS_pipe]    "pipe    ",
-[SYS_read]    "read    ",
-[SYS_kill]    "kill    ",
-[SYS_exec]    "exec    ",
-[SYS_fstat]   "fstat   ",
-[SYS_chdir]   "chdir   ",
-[SYS_dup]     "dup     ",
-[SYS_getpid]  "getpid  ",
-[SYS_sbrk]    "sbrk    ",
-[SYS_sleep]   "sleep   ",
-[SYS_uptime]  "uptime  ",
-[SYS_open]    "open    ",
-[SYS_write]   "write   ",
-[SYS_mknod]   "mknod   ",
-[SYS_unlink]  "unlink  ",
-[SYS_link]    "link    ",
-[SYS_mkdir]   "mkdir   ",
-[SYS_close]   "close   ",
-[SYS_trace]   "trace   ",
+[SYS_fork]    "fork",
+[SYS_exit]    "exit",
+[SYS_wait]    "wait",
+[SYS_pipe]    "pipe",
+[SYS_read]    "read",
+[SYS_kill]    "kill",
+[SYS_exec]    "exec",
+[SYS_fstat]   "fstat",
+[SYS_chdir]   "chdir",
+[SYS_dup]     "dup",
+[SYS_getpid]  "getpid",
+[SYS_sbrk]    "sbrk",
+[SYS_sleep]   "sleep",
+[SYS_uptime]  "uptime",
+[SYS_open]    "open",
+[SYS_write]   "write",
+[SYS_mknod]   "mknod",
+[SYS_unlink]  "unlink",
+[SYS_link]    "link",
+[SYS_mkdir]   "mkdir",
+[SYS_close]   "close",
+[SYS_trace]   "trace",
 };
 
 void
@@ -167,12 +167,23 @@ syscall(void)
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
-    p->trapframe->a0 = syscalls[num]();
+    uint64 retval = syscalls[num]();
 
     // trace output
     if (((p->tracemask)>>num)&1) {
-        printf("trace: %d: %s: %lu\n", p->pid, syscalls_names[num], p->trapframe->a0);
+      printf("trace: %d: %s: \n-----: args: 0: %lu 1: %lu 2: %lu 3: %lu 4: %lu 5: %lu\n-----: return: %lu\n",
+             p->pid,
+             syscalls_names[num],
+             p->trapframe->a0,
+             p->trapframe->a1,
+             p->trapframe->a2,
+             p->trapframe->a3,
+             p->trapframe->a4,
+             p->trapframe->a5,
+             retval);
     }
+
+    p->trapframe->a0 = retval;
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
