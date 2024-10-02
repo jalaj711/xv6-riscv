@@ -124,6 +124,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->tracemask = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -301,6 +302,9 @@ fork(void)
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
+
+  // Copy trace mask of parent to the child
+  np->tracemask = p->tracemask;
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
@@ -692,4 +696,13 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Enable tracing of system calls for this process.
+// For debugging.
+void trace(int mask) {
+    struct proc *p = myproc();
+    printf("trace enabled for process: %d with mask %d\n", p->pid, mask);
+    p -> tracemask = mask;
+    return;
 }

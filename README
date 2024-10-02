@@ -8,6 +8,7 @@ CHANGES MADE TO ORIGINAL xv6:
 - Added ping pong program
 - Added primes program
 - Added find program
+- Added `trace` system call
 
 ACKNOWLEDGMENTS
 

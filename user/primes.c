@@ -1,4 +1,5 @@
 #include "kernel/types.h"
+#include "kernel/syscall.h"
 #include "user/user.h"
 
 void primes() __attribute__((noreturn));
@@ -69,6 +70,8 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
     }
+
+    trace(1<<SYS_fork|1<<SYS_close|1<<SYS_pipe);
 
     int p[2];
     pipe(p);
