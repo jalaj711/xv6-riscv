@@ -78,7 +78,7 @@ void find(char * path, char * search) {
         // we can only store upto 512 bytes
         if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf){
             printf("find: path too long\n");
-            break;
+            return;
         }
 
         strcpy(buf, path);
