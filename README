@@ -9,6 +9,7 @@ CHANGES MADE TO ORIGINAL xv6:
 - Added primes program
 - Added find program
 - Added `trace` system call
+- Speed up `getpid` system call
 
 ACKNOWLEDGMENTS
 

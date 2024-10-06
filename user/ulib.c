@@ -1,4 +1,6 @@
 #include "kernel/types.h"
+#include "kernel/riscv.h"
+#include "kernel/memlayout.h"
 #include "kernel/stat.h"
 #include "kernel/fcntl.h"
 #include "user/user.h"
@@ -144,4 +146,12 @@ void *
 memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
+}
+
+// faster getpid system call
+int
+ugetpid(void)
+{
+  struct usyscall *u = (struct usyscall *)USYSCALL;
+  return u->pid;
 }
