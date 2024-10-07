@@ -449,3 +449,43 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+uint64 construct_va(int lvl1, int lvl2, int lvl3) {
+  uint64 val = lvl1;
+  val = val << 9 | lvl2;
+  val = val << 9 | lvl3;
+  val = val << 12;
+  return val;
+}
+
+// function to print the page table of a process
+void vmprint(pagetable_t pgtbl) {
+  printf("page table %p\n", pgtbl);
+
+
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pgtbl[i];
+    if(pte & PTE_V){
+      uint64 child = PTE2PA(pte);
+      printf(".. %p: pte %p pa %p\n", (void *)construct_va(i, 0, 0),(void *) pte, (void *)child);
+      if ((pte & (PTE_R|PTE_W|PTE_X)) == 0) {
+        for(int j = 0; j < 512; j++){
+          pte_t pte2 = ((pagetable_t)child)[j];
+          if(pte2 & PTE_V){
+            uint64 child2 = PTE2PA(pte2);
+            printf(".. .. %p: pte %p pa %p\n", (void *)construct_va(i, j, 0),(void *) pte2, (void *)child2);
+            if ((pte2 & (PTE_R|PTE_W|PTE_X)) == 0) {
+              for(int k = 0; k < 512; k++){
+                pte_t pte3 = ((pagetable_t)child2)[k];
+                if(pte3 & PTE_V){
+                  uint64 child3 = PTE2PA(pte3);
+                  printf(".. .. .. %p: pte %p pa %p\n", (void *)construct_va(i, j, k),(void *) pte3, (void *)child3);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

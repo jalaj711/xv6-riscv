@@ -91,3 +91,10 @@ sys_trace(void) {
   trace(n);
   return 0;
 }
+
+uint64
+sys_kpgtbl(void) {
+  pagetable_t pt = myproc() -> pagetable;
+  vmprint(pt);
+  return 0;
+}

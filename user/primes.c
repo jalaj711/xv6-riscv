@@ -71,7 +71,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    trace(1<<SYS_fork|1<<SYS_close|1<<SYS_pipe);
+//    trace(1<<SYS_fork|1<<SYS_close|1<<SYS_pipe);
+    kpgtbl();
 
     int p[2];
     pipe(p);
