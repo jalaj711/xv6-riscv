@@ -57,7 +57,7 @@ void primes() {
 
 int main(int argc, char *argv[]) {
     int limit;
-    if (argc == 1) limit = 100;
+    if (argc == 1) limit = 10;
     else {
         limit = 0;
         char *arg = argv[1];
@@ -73,6 +73,11 @@ int main(int argc, char *argv[]) {
 
 //    trace(1<<SYS_fork|1<<SYS_close|1<<SYS_pipe);
     kpgtbl();
+    char * ptr = sbrk(1024*1024*2);
+    printf("mem %p\n", (void *)ptr);
+    kpgtbl();
+
+    *(ptr+4095) = 't';
 
     int p[2];
     pipe(p);

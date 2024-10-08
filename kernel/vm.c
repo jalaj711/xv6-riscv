@@ -83,10 +83,12 @@ kvminithart()
 //   12..20 -- 9 bits of level-0 index.
 //    0..11 -- 12 bits of byte offset within the page.
 pte_t *
-walk(pagetable_t pagetable, uint64 va, int alloc)
+walk(pagetable_t pagetable, uint64 va, int alloc, int superpage)
 {
   if(va >= MAXVA)
     panic("walk");
+
+  if (superpage) return &pagetable[PX(0, va)];
 
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
@@ -98,6 +100,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
     }
+    if (superpage) break;
   }
   return &pagetable[PX(0, va)];
 }
@@ -114,7 +117,7 @@ walkaddr(pagetable_t pagetable, uint64 va)
   if(va >= MAXVA)
     return 0;
 
-  pte = walk(pagetable, va, 0);
+  pte = walk(pagetable, va, 0, 0);
   if(pte == 0)
     return 0;
   if((*pte & PTE_V) == 0)
@@ -131,7 +134,7 @@ walkaddr(pagetable_t pagetable, uint64 va)
 void
 kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 {
-  if(mappages(kpgtbl, va, sz, pa, perm) != 0)
+  if(mappages(kpgtbl, va, sz, pa, perm, 0) != 0)
     panic("kvmmap");
 }
 
@@ -141,33 +144,40 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 // Returns 0 on success, -1 if walk() couldn't
 // allocate a needed page-table page.
 int
-mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
+mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm, int superpage)
 {
   uint64 a, last;
   pte_t *pte;
-
+  const int align = superpage ? SUPERPGSIZE : PGSIZE;
+  if (superpage) {
+    printf("mapping superpage\n");
+  }
   if((va % PGSIZE) != 0)
     panic("mappages: va not aligned");
 
-  if((size % PGSIZE) != 0)
+  if((size % align) != 0)
     panic("mappages: size not aligned");
 
   if(size == 0)
     panic("mappages: size");
   
   a = va;
-  last = va + size - PGSIZE;
+  last = va + size - align;
+  if(superpage) printf("start=%p last = %p\n", (void *)a, (void *)last);
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
+    if((pte = walk(pagetable, a, 1, superpage)) == 0)
       return -1;
+    if(superpage) printf("walk returned\n");
     if(*pte & PTE_V)
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
       break;
-    a += PGSIZE;
-    pa += PGSIZE;
+    a += align;
+    pa += align;
+    if(superpage) printf("a=%p, pa=%p", (void *)a,(void *) pa);
   }
+  if(superpage) printf("a=%p, pa=%p", (void *)a,(void *) pa);
   return 0;
 }
 
@@ -183,8 +193,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   if((va % PGSIZE) != 0)
     panic("uvmunmap: not aligned");
 
+  printf("unmapping: %p\nx  ", (void *)va);
+
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
-    if((pte = walk(pagetable, a, 0)) == 0)
+    if((pte = walk(pagetable, a, 0, 0)) == 0)
       panic("uvmunmap: walk");
     if((*pte & PTE_V) == 0)
       panic("uvmunmap: not mapped");
@@ -223,7 +235,7 @@ uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
     panic("uvmfirst: more than a page");
   mem = kalloc();
   memset(mem, 0, PGSIZE);
-  mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W|PTE_R|PTE_X|PTE_U);
+  mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W|PTE_R|PTE_X|PTE_U, 0);
   memmove(mem, src, sz);
 }
 
@@ -234,9 +246,41 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 {
   char *mem;
   uint64 a;
+  printf("inside uvmalloc\n");
 
   if(newsz < oldsz)
     return oldsz;
+
+  // if you can allocate superpages
+  if (newsz - oldsz >= SUPERPGSIZE) {
+    printf("\noldsz = %p, newsz = %p\n", (void *)oldsz, (void *)newsz);
+    oldsz = PGROUNDUP(oldsz);
+    printf("\noldsz = %p, newsz = %p\n", (void *)oldsz, (void *)newsz);
+    for(a = oldsz; a < newsz; a += SUPERPGSIZE){
+      printf("inside loop\n");
+      mem = ksuperalloc();
+      if(mem == 0){
+        // if failed then try allocating normal pages
+        break;
+      }
+      memset(mem, 0, SUPERPGSIZE);
+      if(mappages(pagetable, a, SUPERPGSIZE, (uint64)mem, PTE_R|PTE_U|xperm, 1) != 0){
+        ksuperfree(mem);
+        uvmdealloc(pagetable, a, oldsz);
+        return 0;
+      }
+    }
+    printf("\noldsz = %p, a = %p, newsz = %p\n", (void *)oldsz, (void *)a, (void *)newsz);
+    if (a > newsz)
+      a = (a - SUPERPGSIZE);
+    oldsz = a;
+    printf("\noldsz = %p, a = %p, newsz = %p\n", (void *)oldsz, (void *)a, (void *)newsz);
+    // if all required size has been allocated
+    if (oldsz >= newsz) {
+      printf("uvmalloc super return\n");
+      return newsz;
+    }
+  }
 
   oldsz = PGROUNDUP(oldsz);
   for(a = oldsz; a < newsz; a += PGSIZE){
@@ -246,7 +290,7 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
       return 0;
     }
     memset(mem, 0, PGSIZE);
-    if(mappages(pagetable, a, PGSIZE, (uint64)mem, PTE_R|PTE_U|xperm) != 0){
+    if(mappages(pagetable, a, PGSIZE, (uint64)mem, PTE_R|PTE_U|xperm, 0) != 0){
       kfree(mem);
       uvmdealloc(pagetable, a, oldsz);
       return 0;
@@ -318,7 +362,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
+    if((pte = walk(old, i, 0, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
@@ -327,7 +371,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((mem = kalloc()) == 0)
       goto err;
     memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
+    if(mappages(new, i, PGSIZE, (uint64)mem, flags, 0) != 0){
       kfree(mem);
       goto err;
     }
@@ -346,7 +390,7 @@ uvmclear(pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
   
-  pte = walk(pagetable, va, 0);
+  pte = walk(pagetable, va, 0, 0);
   if(pte == 0)
     panic("uvmclear");
   *pte &= ~PTE_U;
@@ -365,7 +409,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     va0 = PGROUNDDOWN(dstva);
     if(va0 >= MAXVA)
       return -1;
-    pte = walk(pagetable, va0, 0);
+    pte = walk(pagetable, va0, 0, 0);
     if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
        (*pte & PTE_W) == 0)
       return -1;
