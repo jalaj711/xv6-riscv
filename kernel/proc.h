@@ -106,4 +106,10 @@ struct proc {
   char name[16];               // Process name (debugging)
   int tracemask;               // Mask for tracing system calls
   struct usyscall *usyscallpg; // Page for speeding up system call
+
+  int sigalarm_period;         // The time period for the syscall sigalarm, 0 if sigalarm not active
+  void (*sigalarm_handler)();  // The handler for sigalarm;
+  int sigalarm_tick_counter;   // Counter for number of ticks inside sigalarm
+  char sigalarm_is_handler_active; // 1 if sigalarm handler was called but hasn't returned yet
+  struct trapframe *sigalarm_trapframe; // saved register for sigalarm
 };

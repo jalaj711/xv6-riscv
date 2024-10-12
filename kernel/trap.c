@@ -77,8 +77,23 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
-    yield();
+  if(which_dev == 2) {
+    if (
+        // sigalarm has been set
+        (p->sigalarm_period != 0) &&
+        // increment tick counter and check if it matches the period set
+        (++(p->sigalarm_tick_counter) == p->sigalarm_period) &&
+        // the handler must not already be running
+        p->sigalarm_is_handler_active == 0
+        ) {
+        p->sigalarm_is_handler_active = 1;
+        // save trapframe to return later when sigreturn is called
+        *(p->sigalarm_trapframe) = *(p->trapframe);
+        // set pc to handler, so when usertrapret() returns,
+        // the handler is called
+        p->trapframe->epc = (uint64) p->sigalarm_handler;
+    } else yield();
+  }
 
   usertrapret();
 }

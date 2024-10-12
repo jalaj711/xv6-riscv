@@ -24,6 +24,8 @@ int sleep(int);
 int uptime(void);
 int trace(int);
 void kpgtbl(void);
+int sigalarm(int period, void (*handler)(void));
+int sigreturn(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

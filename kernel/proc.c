@@ -125,6 +125,10 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->tracemask = 0;
+  p->sigalarm_handler = 0;
+  p->sigalarm_is_handler_active = 0;
+  p->sigalarm_period = 0;
+  p->sigalarm_tick_counter = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -132,8 +136,13 @@ found:
     release(&p->lock);
     return 0;
   }
+  if((p->sigalarm_trapframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
 
-  // Allocate a trapframe page.
+  // Allocate a usyscall page.
   if((p->usyscallpg = (struct usyscall *)kalloc()) == 0){
     freeproc(p);
     release(&p->lock);
@@ -180,6 +189,9 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->sigalarm_handler = 0;
+  p->sigalarm_is_handler_active = 0;
+  p->sigalarm_period = 0;
   p->state = UNUSED;
 }
 

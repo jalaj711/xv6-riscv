@@ -11,6 +11,7 @@ CHANGES MADE TO ORIGINAL xv6:
 - Added `trace` system call
 - Speed up `getpid` system call
 - Added `backtrace()` functionality
+- Added `sigalarm()` and `sigreturn()` syscalls.
 
 ACKNOWLEDGMENTS
 
