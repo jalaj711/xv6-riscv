@@ -10,6 +10,7 @@ CHANGES MADE TO ORIGINAL xv6:
 - Added find program
 - Added `trace` system call
 - Speed up `getpid` system call
+- Added `backtrace()` functionality
 
 ACKNOWLEDGMENTS
 

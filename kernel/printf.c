@@ -165,6 +165,7 @@ panic(char *s)
   pr.locking = 0;
   printf("panic: ");
   printf("%s\n", s);
+  backtrace();
   panicked = 1; // freeze uart output from other CPUs
   for(;;)
     ;
@@ -175,4 +176,25 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
+}
+
+void
+backtrace(void) {
+  uint64 fp = r_fp();
+  uint64 low = PGROUNDDOWN(fp);
+  uint64 hi = PGROUNDUP(fp);
+
+  printf("backtrace: \n");
+
+
+  // ensure that fp stays within current page limits
+  while(fp >= low+16 && fp < hi) {
+    // the value in stack at fp-8 stores the return address
+    // so this can be used to determine the function that
+    // called this
+    printf("%p\n", *(uint64**)(fp-8));
+
+    // fp-16 stores the previous frame pointer
+    fp = *(uint64 *)(fp-16);
+  }
 }
