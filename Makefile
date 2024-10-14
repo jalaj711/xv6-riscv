@@ -146,6 +146,7 @@ UPROGS=\
 	$U/_find\
 	$U/_ugetpidtest\
 	$U/_alarmtest\
+	$U/_cowtest
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

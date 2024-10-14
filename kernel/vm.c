@@ -314,8 +314,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
   pte_t *pte;
   uint64 pa, i;
-  uint flags;
-  char *mem;
+  uint flags, nflags;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -324,18 +323,22 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    nflags = flags;
+    // COW bit only needs to be set if this page has write access
+    // otherwise no need, because there is no need to copy the
+    // page in future
+    if (flags & PTE_W) {
+      nflags = (flags & ~PTE_W) | PTE_COW;
+      *pte = (*pte & ~PTE_W) | PTE_COW;
+    }
+    krefcntadd((void *)pa, 1);
+    if(mappages(new, i, PGSIZE, pa, nflags) != 0){
       goto err;
     }
   }
   return 0;
 
  err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
 }
 
@@ -365,10 +368,24 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     va0 = PGROUNDDOWN(dstva);
     if(va0 >= MAXVA)
       return -1;
-    pte = walk(pagetable, va0, 0);
-    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
-       (*pte & PTE_W) == 0)
+    pa0 = walkaddr(pagetable, va0);
+    if(pa0 == 0)
       return -1;
+    // check if this is a COW page, if so, copy the contents
+    // in a new page
+    pte = walk(pagetable, va0, 0);
+    if(*pte & PTE_COW){
+      char *mem = kalloc();
+      if (mem == 0)
+        return -1;
+      memmove(mem, (void *)pa0, PGSIZE);
+      krefcntadd((void *)pa0, -1);
+      int flags = (PTE_FLAGS(*pte) & (~PTE_COW)) | PTE_W;
+      *pte = PA2PTE(mem) | flags | PTE_V;
+      pa0 = (uint64)mem;
+    }else if((*pte & PTE_W) == 0){
+      return -1;
+    }
     pa0 = PTE2PA(*pte);
     n = PGSIZE - (dstva - va0);
     if(n > len)

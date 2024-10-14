@@ -37,6 +37,7 @@ void
 usertrap(void)
 {
   int which_dev = 0;
+  uint64 scause = r_scause();
 
   if((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
@@ -50,7 +51,7 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
-  if(r_scause() == 8){
+  if(scause == 8){
     // system call
 
     if(killed(p))
@@ -65,10 +66,38 @@ usertrap(void)
     intr_on();
 
     syscall();
+  }
+  // scause 15 means page fault while write
+  else if (scause == 15) {
+    uint64 va = PGROUNDDOWN(r_stval());
+    pte_t * pte = walk(p->pagetable, va, 0);
+    uint64 pa = PTE2PA(*pte);
+    uint flags = PTE_FLAGS(*pte);
+    // this tells that it is a shared page which
+    // originally had write permissions
+    if (flags & PTE_COW) {
+      if (krefcnt((void *)pa) > 1) {
+        uint64* mem = kalloc();
+        if (mem < 0) {
+          kfree(mem);
+          goto err;
+        }
+        krefcntadd((void *)pa, -1);
+        memmove(mem, (char*)pa, PGSIZE);
+        *pte = (PA2PTE(mem) | flags | PTE_W | PTE_V) & ~PTE_COW;
+      } else {
+        // this is the only process referring that page
+        // so remove the COW bit and set the W bit
+        *pte = (*pte & ~PTE_COW) | PTE_W;
+      }
+    } else {
+      goto err;
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
-    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+err:
+    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", scause, p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
     setkilled(p);
   }
