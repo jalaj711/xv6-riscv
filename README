@@ -13,6 +13,7 @@ CHANGES MADE TO ORIGINAL xv6:
 - Added `backtrace()` functionality
 - Added `sigalarm()` and `sigreturn()` syscalls.
 - Added copy-on-write fork
+- Added a per-cpu memory free list to reduce lock contention
 
 ACKNOWLEDGMENTS
 
